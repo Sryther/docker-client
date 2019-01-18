@@ -216,7 +216,6 @@ import com.spotify.docker.client.messages.swarm.ServiceSpec;
 import com.spotify.docker.client.messages.swarm.Swarm;
 import com.spotify.docker.client.messages.swarm.SwarmInit;
 import com.spotify.docker.client.messages.swarm.SwarmSpec;
-import com.spotify.docker.client.messages.swarm.Task;
 import com.spotify.docker.client.messages.swarm.TaskDefaults;
 import com.spotify.docker.client.messages.swarm.TaskSpec;
 import com.spotify.docker.client.messages.swarm.UnlockKey;
@@ -247,7 +246,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -498,7 +496,7 @@ public class DefaultDockerClientTest {
   public void testPullPrivateRepoWithoutAuth() throws Exception {
     sut.pull(CIRROS_PRIVATE_LATEST);
   }
-  
+
   private static Path getResource(String name) throws URISyntaxException {
     // Resources.getResources(...).getPath() does not work correctly on windows,
     // hence this workaround.  See: https://github.com/spotify/docker-client/pull/780
@@ -5401,23 +5399,23 @@ public class DefaultDockerClientTest {
     assertThat(services.size(), is(1));
     assertThat(services.get(0).spec().name(), is(serviceName));
   }
-  
+
   @Test
   public void testListServicesFilterByLabel() throws Exception {
     requireDockerApiVersionAtLeast("1.24", "swarm support");
     final String serviceName = randomName();
-    
+
     Map<String, String> labels = new HashMap<>();
     labels.put("foo", "bar");
-    
+
     final ServiceSpec spec = createServiceSpec(serviceName, labels);
     sut.createService(spec);
 
     final List<Service> services = sut.listServices(Service.find().addLabel("foo", "bar").build());
-    
+
     assertThat(services.size(), is(1));
     assertThat(services.get(0).spec().labels().get("foo"), is("bar"));
-    
+
     final List<Service> notFoundServices = sut.listServices(Service.find()
         .addLabel("bar", "foo").build());
     assertThat(notFoundServices.size(), is(0));
@@ -5549,6 +5547,48 @@ public class DefaultDockerClientTest {
     if (tmpfsOptions != null) {
       assertThat(tmpfsOptions.sizeBytes(), equalTo(expectedSizeBytes));
       assertThat(tmpfsOptions.mode(), equalTo(expectedMode));
+    }
+  }
+
+  @Test
+  public void testUpdateServiceWithForceUpdate() throws Exception {
+    requireDockerApiVersionAtLeast("1.25", "swarm support");
+    final ServiceSpec spec = createServiceSpec(randomName());
+
+    final ServiceCreateResponse response = sut.createService(spec);
+    assertThat(response.id(), is(notNullValue()));
+
+    Service service = sut.inspectService(response.id());
+    assertThat(service.spec().taskTemplate().forceUpdate(), is(nullValue()));
+
+    ServiceSpec.Builder newServiceSpecBuilder = ServiceSpec.builder()
+            .name(service.spec().name())
+            .mode(service.spec().mode())
+            .endpointSpec(service.spec().endpointSpec())
+            .updateConfig(service.spec().updateConfig());
+
+    TaskSpec oldTaskSpec = service.spec().taskTemplate();
+    TaskSpec.Builder newTaskSpecBuilder = TaskSpec.builder()
+            .resources(oldTaskSpec.resources())
+            .restartPolicy(oldTaskSpec.restartPolicy())
+            .placement(oldTaskSpec.placement())
+            .containerSpec(oldTaskSpec.containerSpec())
+            .logDriver(oldTaskSpec.logDriver())
+            .networks(oldTaskSpec.networks());
+
+    for (int i = 0; i < 3; i++) {
+      service = sut.inspectService(response.id());
+      Integer atualForceUpdate = service.spec().taskTemplate().forceUpdate() != null
+              ? service.spec().taskTemplate().forceUpdate() : new Integer(0);
+      newTaskSpecBuilder.forceUpdate(atualForceUpdate + 1).build();
+
+      newServiceSpecBuilder.taskTemplate(newTaskSpecBuilder.build());
+
+      // update service with same spec, but bump the number of replicas by 1
+      sut.updateService(response.id(), service.version().index(), newServiceSpecBuilder.build());
+
+      service = sut.inspectService(response.id());
+      assertThat(service.spec().taskTemplate().forceUpdate(), is(i + 1));
     }
   }
 

@@ -60,6 +60,10 @@ public abstract class TaskSpec {
   @JsonProperty("LogDriver")
   public abstract Driver logDriver();
 
+  @Nullable
+  @JsonProperty("ForceUpdate")
+  public abstract Integer forceUpdate();
+
   @AutoValue.Builder
   public abstract static class Builder {
 
@@ -144,6 +148,8 @@ public abstract class TaskSpec {
       return this;
     }
 
+    public abstract Builder forceUpdate(Integer forceUpdate);
+
     public abstract TaskSpec build();
   }
 
@@ -158,7 +164,8 @@ public abstract class TaskSpec {
       @JsonProperty("RestartPolicy") final RestartPolicy restartPolicy,
       @JsonProperty("Placement") final Placement placement,
       @JsonProperty("Networks") final List<NetworkAttachmentConfig> networks,
-      @JsonProperty("LogDriver") final Driver logDriver) {
+      @JsonProperty("LogDriver") final Driver logDriver,
+      @JsonProperty("ForceUpdate") final Integer forceUpdate) {
     return builder()
         .containerSpec(containerSpec)
         .resources(resources)
@@ -166,6 +173,7 @@ public abstract class TaskSpec {
         .placement(placement)
         .logDriver(logDriver)
         .networks(networks)
+        .forceUpdate(forceUpdate)
         .build();
   }
 }

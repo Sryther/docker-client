@@ -41,5 +41,6 @@ public class TaskSpecTest {
     assertThat(spec.placement(), is(nullValue()));
     assertThat(spec.networks(), is(nullValue()));
     assertThat(spec.logDriver(), is(nullValue()));
+    assertThat(spec.forceUpdate(), is(nullValue()));
   }
 }
