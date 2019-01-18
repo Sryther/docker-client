@@ -26,14 +26,32 @@ import static com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility.NONE;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.auto.value.AutoValue;
 
 import javax.annotation.Nullable;
+import java.util.List;
 
 
 @AutoValue
 @JsonAutoDetect(fieldVisibility = ANY, getterVisibility = NONE, setterVisibility = NONE)
 public abstract class UpdateConfig {
+  public enum UpdateOrder {
+    START_FIRST("start-first"),
+    STOP_FIRST("stop-first");
+
+    private final String value;
+
+    UpdateOrder(final String value) {
+      this.value = value;
+    }
+
+    @JsonValue
+    public String getValue() {
+      return value;
+    }
+  }
+
 
   @Nullable
   @JsonProperty("Parallelism")
@@ -47,11 +65,59 @@ public abstract class UpdateConfig {
   @JsonProperty("FailureAction")
   public abstract String failureAction();
 
+  @Nullable
+  @JsonProperty("UpdateOrder")
+  public abstract UpdateOrder updateOrder();
+
+  abstract UpdateConfig.Builder toBuilder();
+
   @JsonCreator
   public static UpdateConfig create(
       @JsonProperty("Parallelism") final Long parallelism,
       @JsonProperty("Delay") final Long delay,
       @JsonProperty("FailureAction") final String failureAction) {
     return new AutoValue_UpdateConfig(parallelism, delay, failureAction);
+  }
+
+  public UpdateConfig startFirst() {
+    return toBuilder().updateOrder(UpdateOrder.START_FIRST).build();
+  }
+
+  public UpdateConfig stopFirst() {
+    return toBuilder().updateOrder(UpdateOrder.STOP_FIRST).build();
+  }
+
+  @AutoValue.Builder
+  public abstract static class Builder {
+
+    public abstract Builder parallelism(Long parallelism);
+
+    public abstract Builder delay(Long delay);
+
+    public abstract Builder failureAction(String failureAction);
+
+    public abstract Builder updateOrder(UpdateOrder updateOrder);
+
+    public abstract UpdateConfig build();
+
+  }
+
+  public static UpdateConfig.Builder builder() {
+    return new AutoValue_UpdateConfig.Builder();
+  }
+
+  @JsonCreator
+  static UpdateConfig create(
+          @JsonProperty("Parallelism") final Long parallelism,
+          @JsonProperty("Delay") final Long delay,
+          @JsonProperty("FailureAction") final String failureAction,
+          @JsonProperty("UdpateOrder") final UpdateOrder updateOrder) {
+    final Builder builder = builder()
+            .parallelism(parallelism)
+            .delay(delay)
+            .failureAction(failureAction)
+            .updateOrder(updateOrder);
+
+    return builder.build();
   }
 }
